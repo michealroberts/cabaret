@@ -96,24 +96,61 @@ def gaia_radecs(
     elif not circular and tmass:
         job = Gaia.launch_job(
             f"""
-            SELECT top {limit} gaia.ra, gaia.dec, gaia.pmra, gaia.pmdec, gaia.phot_rp_mean_flux, tmass.j_m
-            FROM gaiadr2.gaia_source AS gaia
-            INNER JOIN gaiadr2.tmass_best_neighbour AS tmass_match ON tmass_match.source_id = gaia.source_id
-            INNER JOIN gaiadr1.tmass_original_valid AS tmass ON tmass.tmass_oid = tmass_match.tmass_oid
-            WHERE gaia.ra BETWEEN {ra-ra_fov/2} AND {ra+ra_fov/2} AND
-            gaia.dec BETWEEN {dec-dec_fov/2} AND {dec+dec_fov/2}
-            ORDER BY tmass.j_m
-            """
+                SELECT TOP {limit} 
+                    gaia.ra, 
+                    gaia.dec, 
+                    gaia.pmra, 
+                    gaia.pmdec, 
+                    gaia.phot_rp_mean_flux, 
+                    tmass.j_m
+                FROM 
+                    gaiadr2.gaia_source AS gaia
+                INNER JOIN 
+                    gaiadr2.tmass_best_neighbour AS tmass_match 
+                    ON tmass_match.source_id = gaia.source_id
+                INNER JOIN 
+                    gaiadr1.tmass_original_valid AS tmass 
+                    ON tmass.tmass_oid = tmass_match.tmass_oid
+                WHERE 
+                    CONTAINS(
+                        POINT(gaia.ra, gaia.dec),
+                        POLYGON((
+                            {ra - ra_fov / 2} {dec - dec_fov / 2},
+                            {ra + ra_fov / 2} {dec - dec_fov / 2},
+                            {ra + ra_fov / 2} {dec + dec_fov / 2},
+                            {ra - ra_fov / 2} {dec + dec_fov / 2},
+                            {ra - ra_fov / 2} {dec - dec_fov / 2}
+                        ))
+                    ) = 1
+                ORDER BY 
+                    tmass.j_m
+                """
         )
     else:
         job = Gaia.launch_job(
             f"""
-            SELECT top {limit} gaia.ra, gaia.dec, gaia.pmra, gaia.pmdec, gaia.phot_rp_mean_flux
-            FROM gaiadr2.gaia_source AS gaia
-            WHERE gaia.ra BETWEEN {ra-ra_fov/2} AND {ra+ra_fov/2} AND
-            gaia.dec BETWEEN {dec-dec_fov/2} AND {dec+dec_fov/2}
-            ORDER BY gaia.phot_rp_mean_flux DESC
-            """
+                SELECT TOP {limit} 
+                    gaia.ra, 
+                    gaia.dec, 
+                    gaia.pmra, 
+                    gaia.pmdec, 
+                    gaia.phot_rp_mean_flux
+                FROM 
+                    gaiadr2.gaia_source AS gaia
+                WHERE 
+                    CONTAINS(
+                        POINT(gaia.ra, gaia.dec),
+                        POLYGON((
+                            {ra - ra_fov / 2} {dec - dec_fov / 2},
+                            {ra + ra_fov / 2} {dec - dec_fov / 2},
+                            {ra + ra_fov / 2} {dec + dec_fov / 2},
+                            {ra - ra_fov / 2} {dec + dec_fov / 2},
+                            {ra - ra_fov / 2} {dec - dec_fov / 2}
+                        ))
+                    ) = 1
+                ORDER BY 
+                    gaia.phot_rp_mean_flux DESC
+                """
         )
 
     table = job.get_results()
